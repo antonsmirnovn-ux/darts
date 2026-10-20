@@ -19,6 +19,37 @@ export const HITS: Hit[] = [
   {value:25,label:'25',double:false}, {value:0,label:'Мимо',double:false}
 ];
 const FINALS=HITS.filter(h=>h.double);
+const FINAL_PREFERENCE=['D16','D20','D8','D18','D12','D10','D4','Bull','D14','D6','D2','D1'];
+const finalRank=(h:Hit)=>{const i=FINAL_PREFERENCE.indexOf(h.label);return i<0?100+i:i};
+const preparationRank=(h:Hit)=>{
+  if(h.label==='25'||h.double)return 10;
+  if(h.label==='T20'||h.label==='T19')return 1;
+  if(h.label.startsWith('T'))return 2;
+  return 0;
+};
+type CheckoutPath={hits:Hit[]; final:number; prep:number[]};
+const checkoutTables=new Map<OutRule,Map<number,Hit[]|null>>();
+function checkoutTable(out:OutRule){
+  const existing=checkoutTables.get(out);if(existing)return existing;
+  const finals=out==='double'?FINALS:HITS.filter(h=>h.value>0), before=HITS.filter(h=>h.value>0);
+  const table=new Map<number,Hit[]|null>();
+  const better=(a:CheckoutPath,b:CheckoutPath)=>{
+    if(a.hits.length!==b.hits.length)return a.hits.length-b.hits.length;
+    const cost=(p:CheckoutPath)=>p.prep.reduce((x,y)=>x+y,0)+finalRank(p.hits.at(-1)!);
+    const practical=cost(a)-cost(b);if(practical)return practical;
+    for(let i=0;i<a.prep.length;i++)if(a.prep[i]!==b.prep[i])return a.prep[i]-b.prep[i];
+    for(let i=0;i<a.hits.length-1;i++)if(a.hits[i].value!==b.hits[i].value)return b.hits[i].value-a.hits[i].value;
+    return a.hits.map(h=>h.label).join(',').localeCompare(b.hits.map(h=>h.label).join(','));
+  };
+  for(let score=1;score<=180;score++){
+    let best:CheckoutPath|undefined;
+    for(const f of finals){if(f.value===score){const c={hits:[f],final:finalRank(f),prep:[]};if(!best||better(c,best)<0)best=c;}}
+    for(const a of before)for(const f of finals)if(a.value+f.value===score){const c={hits:[a,f],final:finalRank(f),prep:[preparationRank(a)]};if(!best||better(c,best)<0)best=c;}
+    for(const a of before)for(const b of before)for(const f of finals)if(a.value+b.value+f.value===score){const c={hits:[a,b,f],final:finalRank(f),prep:[preparationRank(a),preparationRank(b)]};if(!best||better(c,best)<0)best=c;}
+    table.set(score,best?.hits??null);
+  }
+  checkoutTables.set(out,table);return table;
+}
 const totals: Set<number>[]=[new Set([0])];
 for(let d=1;d<=3;d++) totals[d]=new Set([...totals[d-1]].flatMap(v=>HITS.map(h=>v+h.value)));
 export function possibleScore(score:number,darts=3){return Number.isInteger(score)&&darts>=0&&darts<=3&&totals[darts].has(score)}
@@ -27,14 +58,9 @@ export function canFinish(score:number,darts:number,out:OutRule){
   return (out==='double'?FINALS:HITS.filter(h=>h.value>0)).some(h=>totals[darts-1].has(score-h.value));
 }
 export function checkout(score:number,out:OutRule,maxDarts=3):Hit[]|null{
-  const finals=out==='double'?FINALS:HITS.filter(h=>h.value>0);
-  const before=HITS.filter(h=>h.value>0);
-  for(let d=1;d<=maxDarts;d++){
-    if(d===1){const h=finals.find(h=>h.value===score);if(h)return[h]}
-    if(d===2)for(const a of before){const b=finals.find(h=>a.value+h.value===score);if(b)return[a,b]}
-    if(d===3)for(const a of before)for(const b of before){const c=finals.find(h=>a.value+b.value+h.value===score);if(c)return[a,b,c]}
-  }
-  return null;
+  if(!Number.isInteger(score)||score<1||score>180||maxDarts<1)return null;
+  const path=checkoutTable(out).get(score)??null;
+  return path&&path.length<=maxDarts?path:null;
 }
 export function evaluateHits(before:number,hits:Hit[],out:OutRule){
   let left=before;let used=0;

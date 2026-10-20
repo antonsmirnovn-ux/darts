@@ -12,6 +12,10 @@ test('per-dart handles wrong final double, one left and early finish',()=>{const
 test('replay preserves result and removing last event restores state',()=>{const s={version:1,config:config(),events:[{type:'visit',input:{score:180,darts:3}},{type:'visit',input:{score:0,darts:3}},{type:'visit',input:{score:121,darts:3}}]};assert.equal(replay(s).status,'leg');assert.deepEqual(replay({...s,events:s.events.slice(0,-1)}).scores,[121,301]);assert.equal(replay({...s,events:s.events.slice(0,-1)}).active,0)});
 test('straight out permits one remaining and one point finish',()=>{let m={...initialMatch({...config(),out:'straight'}),scores:[21,301]};m=turn(m,20);assert.equal(m.scores[0],1);m=turn(m,0);m=turn(m,1,1);assert.equal(m.status,'leg')});
 test('checkout hints use legal finishing hits for every reachable score',()=>{for(const out of ['double','straight'])for(let score=1;score<=180;score++){const path=checkout(score,out);assert.equal(Boolean(path),canFinish(score,3,out),`${out} ${score}`);if(path){assert.ok(path.length<=3);assert.equal(path.reduce((s,h)=>s+h.value,0),score);if(out==='double')assert.ok(path.at(-1).double);assert.equal(evaluateHits(score,path,out).finish,true)}}});
+test('checkout hints prefer practical routes with the same dart count',()=>{
+  const expected={41:['9','D16'],57:['17','D20'],70:['T10','D20'],141:['T20','T19','D12'],170:['T20','T20','Bull'],32:['D16']};
+  for(const [score,path] of Object.entries(expected))assert.deepEqual(checkout(Number(score),'double').map(h=>h.label),path,score);
+});
 
 test('leg dart counts stay separate from match totals and survive replay / undo',()=>{
  const c={...config(true),target:2};const events=[];let m=initialMatch(c);

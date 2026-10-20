@@ -25,3 +25,15 @@ test('teammate checkout is not attributed to selected player',()=>{
  assert.equal(playerSummary(c,'anton').hundreds,1);
  assert.equal(playerMatchSummary(replay(session),'anton').legs.length,0);
 });
+test('guest-only matches are not archived, while one profiled player is enough',()=>{
+ const guest={...session,id:'guest-only',config:{...session.config,sides:session.config.sides.map(side=>({...side,playerIds:[null,null]}))}};
+ assert.equal(upsertMatch(club,guest).matches.length,0);
+ const one={...guest,id:'one-profile',config:{...guest.config,sides:guest.config.sides.map((side,i)=>({...side,playerIds:i===0?['anton',null]:[null,null]}))}};
+ assert.equal(upsertMatch(club,one).matches.length,1);
+});
+test('all-games player performance stats only use x01 matches',()=>{
+ const score={...session,id:'score-180',config:{...session.config,game:'score',rounds:1},events:[{type:'visit',input:{score:180,darts:3}},{type:'visit',input:{score:0,darts:3}}]};
+ const c=upsertMatch(club,score);
+ assert.equal(playerSummary(c,'anton').maxes,0);assert.equal(playerSummary(c,'anton').best,0);
+ assert.equal(playerSummary(c,'anton','score').maxes,1);assert.equal(playerSummary(c,'anton','score').best,180);
+});

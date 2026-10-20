@@ -5,7 +5,7 @@ export const createId=()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),
 export const CLUB_KEY='darts13.club.v1';
 // Owner-requested reset: old offline copies cannot restore erased test games.
 export const HISTORY_EPOCH='2026-10-03-clean-history';
-export const isArchivedMatch=(s:Session)=>s.historyEpoch===HISTORY_EPOCH&&replay(s).status==='won';
+export const isArchivedMatch=(s:Session)=>s.historyEpoch===HISTORY_EPOCH&&replay(s).status==='won'&&s.config.sides.some(side=>side.playerIds?.some(id=>id!==null));
 export const historyClub=(c:Club):Club=>({...c,matches:c.matches.filter(isArchivedMatch)});
 export const emptyClub=():Club=>({version:1,players:[],matches:[]});
 export const keyName=(s:string)=>s.trim().normalize('NFC').toLocaleLowerCase('ru-RU');
@@ -18,7 +18,7 @@ export function parseClub(raw:string):Club{
 export function playerSummary(club:Club,id:string,game?:GameKind){
  let played=0,wins=0,darts=0,points=0,best=0,maxes=0,hundreds=0,bestOut=0;
  const matches=club.matches.filter(s=>isArchivedMatch(s)&&(!game||(s.config.game??'x01')===game)&&s.config.sides.some(side=>side.playerIds?.includes(id)));
- for(const s of matches){const m=replay(s),i=s.config.sides.findIndex(side=>side.playerIds?.includes(id)),side=s.config.sides[i],name=side.players[side.playerIds!.indexOf(id)];if(m.status==='won'){played++;if(m.winner===i&&(!m.winners||m.winners.length===1))wins++}for(const v of m.visits.filter(v=>v.side===i&&v.player===name)){darts+=v.darts;points+=v.credited;best=Math.max(best,v.credited);if(v.credited===180)maxes++;if(v.credited>100)hundreds++;if(v.finished&&(!m.config.game||m.config.game==='x01'))bestOut=Math.max(bestOut,v.credited)}}
+ for(const s of matches){const m=replay(s),i=s.config.sides.findIndex(side=>side.playerIds?.includes(id)),side=s.config.sides[i],name=side.players[side.playerIds!.indexOf(id)];if(m.status==='won'){played++;if(m.winner===i&&(!m.winners||m.winners.length===1))wins++}const countStats=game?true:(s.config.game??'x01')==='x01';if(countStats)for(const v of m.visits.filter(v=>v.side===i&&v.player===name)){darts+=v.darts;points+=v.credited;best=Math.max(best,v.credited);if(v.credited===180)maxes++;if(v.credited>100)hundreds++;if(v.finished&&(!m.config.game||m.config.game==='x01'))bestOut=Math.max(bestOut,v.credited)}}
  return {matches,played,wins,darts,best,maxes,hundreds,bestOut,average:darts?points/darts*3:0};
 }
 export function playerMatchSummary(m:Match,id:string){
